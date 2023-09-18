@@ -1,0 +1,94 @@
+---
+title: "Week 3 Assignment"
+author: "Frederick Jones"
+date: "2023-09-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+   warning=FALSE, message=FALSE,  tidy=TRUE,	tidy.opts=list(arrow=TRUE,	indent=2),fig.width = 10, fig.align = 'center', fig.asp=0.618, out.width = '100%')
+```
+
+# Libraries
+```{r}
+library(tidyverse)
+library(here)
+```
+
+# First Question 
+
+```{r}
+data = read.csv(here('majors-list.csv'))
+
+data |> select('Major') |> filter(str_detect(Major, 'DATA|STATISTICS'))
+```
+
+# Second Question
+
+Data:
+[1] "bell pepper" "bilberry" "blackberry" "blood orange"
+[5] "blueberry" "cantaloupe" "chili pepper" "cloudberry"
+[9] "elderberry" "lime" "lychee" "mulberry"
+[13] "olive" "salal berry"
+
+```{r}
+list = c("bell pepper", "bilberry", "blackberry", "blood orange","blueberry", "cantaloupe", "chili pepper", "cloudberry","elderberry", "lime", "lychee", "mulberry","olive", "salal berry")
+list
+
+```
+
+# Third Question:  Describe, in words, what these expressions will match:
+
+**(.)\1\1 =>** This regular expression identifies sequences of three consecutive identical characters.` 
+
+```{r}
+str_detect(c( "AAA", "999","99"),"(.)\\1\\1")
+```
+
+
+**(.)(.)\\2\\1 =>** This regular expression detects strings consisting of four characters,
+where the first and last characters are identical, while the two middle characters are also identical but distinct from the first and last.  
+```{r}
+str_detect(c("noon","1212","xyyx"),'(.)(.)\\2\\1')
+```
+
+
+
+
+**(..)\1 =>** This regular expression pinpoints strings of at least four characters, where the initial two characters are equivalent to the subsequent two characters.` 
+```{r}
+str_detect(c('noon',"1212","xyyx"),'(..)\1')
+```
+
+
+
+**(.).\\1.\\1 =>** This regular expression recognizes strings comprising five characters, where the first character matches the third and fifth characters, and the second character differs.` 
+
+```{r}
+str_detect(c("AXA","121","bYb"),'(.).\\1.\\1')
+```
+
+**(.)(.)(.).*\\3\\2\\1 =>** This regular expression identifies strings of at least six characters, where the first three characters form a palindrome.`
+```{r}
+str_detect(c("121AABBA", "xyx12345zyx","wow987654321"),'(.)(.)(.).*\\3\\2\\1')
+```
+
+# Forth Question: Construct regular expressions to match words that
+
+**Start and end with the same character.**
+```{r}
+str_detect('tarot','^(.).*\\1$')
+```
+
+**Contain a repeated pair of letters.**
+```{r}
+str_detect("church",".*(.{2}).*\\1.*")
+
+```
+
+**Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)**
+```{r}
+str_detect("eleven","([a-z]).*\\1.*\\1")
+```
+

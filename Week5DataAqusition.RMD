@@ -1,0 +1,128 @@
+---
+title: "Flight Data Analysis"
+author: "Frederick Jones"
+date: "October 1, 2023."
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+   warning=FALSE, message=FALSE,  tidy=TRUE,	tidy.opts=list(arrow=TRUE,	indent=2),fig.width = 10, fig.align = 'center', fig.asp=0.618, out.width = '100%')
+```
+# Load the required libraries
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(flextable)
+library(rstatix)
+```
+
+# GitHub URL for the CSV file
+```{r}
+url <- "https://raw.githubusercontent.com/jewelercart/Data607/main/flight_data.csv"
+```
+
+# Read the CSV file into R, specifying header and line termination
+```{r}
+flight_data <- read.csv(url, header = TRUE, sep = ",", quote = "", fill = TRUE)
+
+```
+
+# Specify the column names explicitly
+```{r}
+colnames(flight_data) <- c("Time_Zone", "Cities", "on_time", "delayed")
+
+```
+
+# Tidy the data (convert to long format)
+```{r}
+flight_data_long <- flight_data %>%
+  gather(key = "Status", value = "Count", -Time_Zone, -Cities)
+```
+
+
+# Removing the quotes from the names of Time Zones and Cities.
+```{r}
+flight_data_long$Time_Zone<- gsub("\"", "", flight_data_long$Time_Zone)
+flight_data_long$Cities<- gsub("\"", "", flight_data_long$Cities)
+table <- knitr::kable(flight_data_long)
+table
+```
+
+
+
+# Calculate summary statistics, handling missing values
+```{r}
+summary_stats =
+flight_data_long  %>%
+  group_by(Time_Zone, Status) %>%
+   get_summary_stats(Count, show = c("mean", "median", "max","min")) 
+```
+
+# Create bar plots to compare arrival delays
+```{r}
+ggplot(flight_data_long, aes(x = Time_Zone, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Comparison of Arrival Delays by Time Zones and Status", y = "Number of Flights") +
+  theme_minimal()
+```
+
+# Filter the data for ALASKA and AM WEST separately:
+```{r}
+alaska_data <- flight_data_long %>% filter(Time_Zone == "ALASKA")
+am_west_data <- flight_data_long %>% filter(Time_Zone == "AM WEST")
+```
+
+# Create bar plots for ALASKA and AM WEST:
+```{r}
+plot_alaska <- ggplot(alaska_data, aes(x = Cities, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Arrival Delays for ALASKA by City and Status", y = "Number of Flights") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust=0.5),
+        panel.grid.minor= element_blank())
+
+plot_alaska
+```
+
+
+```{r}
+plot_am_west <- ggplot(am_west_data, aes(x = Cities, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Arrival Delays for AM WEST by City and Status", y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust=0.5),
+        panel.grid.minor= element_blank())
+
+plot_am_west
+```
+
+
+Summary Statistics:
+```{r}
+summary_stats
+```
+
+# A Chi-square test will compare whether the delay difference of a flight varies by comparing two time zones.
+```{r}
+tbl <- xtabs(~ Time_Zone + Status, data = flight_data_long)
+summary(tbl)
+```
+
+```{r}
+proportions(tbl, "Status")
+```
+# Conclusion
+
+There is no difference between the two time zones regarding flight delays and punctuality. This was confirmed with a chi-squared test p-value = 1.

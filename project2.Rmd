@@ -1,0 +1,320 @@
+---
+title: "Airbnb Analysis of the Least and Most Expensive Cities to Live In."
+author: "Frederick Jones"
+date: "2023-10-08"
+output:
+ html_document:
+  code_folding: hide
+  toc: true
+  toc_float:
+   collapsed: true
+   smooth_scroll: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+   warning=FALSE, message=FALSE,  tidy=TRUE,	tidy.opts=list(arrow=TRUE,	indent=2),fig.width = 10, fig.align = 'center', fig.asp=0.618, out.width = '100%')
+```
+
+
+# Libraries
+```{r}
+library(tidyverse)
+library(here)
+library(rstatix)
+library(gt)
+```
+
+# Data Import
+
+## Listing Prices Dataset
+```{r}
+listing_price= read_csv(here('airbnb_listing_price.csv'))
+listing_price |> head()
+dim(listing_price)
+```
+
+## Location Information Dataset
+```{r}
+location_info=read_csv(here('airbnb_location_info.csv'))
+location_info |> head()
+dim(location_info)
+```
+
+## Property Information Dataset
+```{r}
+property_info=read_csv(here('airbnb_property_info.csv'),locale = locale(encoding = 'utf8'))
+property_info |> head()
+property_info |> dim()
+```
+
+# Data Cleaning
+
+## In which location is the host situated?
+```{r}
+location_info$country= location_info$host_location |> str_split_i(',',-1)  |>  str_trim()
+```
+
+## Proprityes Info
+
+I will exclude the names and amenities columns from the dataset. The column `names` doesn't provide significant information regarding pricing, and the `amenities` column may have a variable number of different values, making it challenging to use in the analysis.
+```{r}
+property_info|> head()
+property_info =property_info|> select(-c('name','amenities'))
+property_info |> head()
+```
+
+
+# Join datasets
+
+All datasets share the same number of rows and a common column, listing_id. Therefore, we only need to merge the columns. To avoid errors, I will use a left join approach with listing_price as the main dataset because it contains the primary information. If a listing is not present in listing_price, it will not be included in the final dataset.
+
+```{r}
+property_listing_price = left_join(listing_price,property_info)
+property_listing_price |> head()
+df=left_join(property_listing_price,location_info)
+df |> dim()
+#write.csv(df,here('ainb_full.csv'),row.names = FALSE)
+```
+
+# Data Analysis
+
+## How many places are available for Instant Bookable?
+```{r}
+df$instant_bookable =as.factor(df$instant_bookable)
+levels(df$instant_bookable) <- c('Not Available', 'Available')
+df |> group_by(instant_bookable=df$instant_bookable) |>
+  summarise(n=n()) |>
+  ggplot() +
+  geom_col(aes(x=instant_bookable,y=n, fill=instant_bookable))+
+  labs(title = 'Airbnb Places Available for Instant Booking',
+       x="",
+       y="")  +
+  theme(
+    legend.position = 'none')
+```
+
+## How many room types?
+
+```{r}
+df |> group_by(room_type) |>
+  summarise(n=n()) |>
+  ggplot() +
+  geom_col(aes(x=room_type,y=n, fill=room_type))+
+  labs(title = 'Types of Rooms',
+       x="",
+       y="")  +
+  theme(
+    legend.position = 'none')
+```
+
+## The five most common property types on Airbnb.
+```{r}
+df |> group_by(property_type) |>
+  summarise(n=n()) |> arrange(desc(n)) |> 
+  top_n(5) |> 
+  ggplot() +
+  geom_col(aes(x=reorder(property_type,n),y=n, fill=property_type))+
+  labs(title = 'The five most common property types on Airbnb.',
+       x="",
+       y="")  +
+  theme(
+    legend.position = 'none') +
+  coord_flip()
+```
+
+
+# Top 5 host countries.
+
+The host is the person who makes a place available for rent, but does not necessarily live there. Which country has the highest number of hosts?
+
+```{r}
+top_countries= df |> group_by(country) |>
+  summarise(n=n()) |> arrange(desc(n)) |>top_n(5) 
+```
+
+
+```{r}
+top_countries |> 
+  ggplot() +
+  geom_col(aes(x=reorder(country,n),y=n, fill=country))+
+  labs(title = 'Top 5 host countries',
+       x="",
+       y="")  +
+  theme(
+    legend.position = 'none') +
+  coord_flip()
+```
+
+
+## Listings by Cities
+```{r}
+df |> group_by(city) |>
+  summarise(n=n()) |> arrange(desc(n)) |> 
+  ggplot() +
+  geom_col(aes(x=reorder(city,n),y=n, fill=city))+
+  labs(title = 'Listings by Cities',
+       x="",
+       y="")  +
+  theme(
+    legend.position = 'none') +
+  coord_flip()
+```
+
+
+## Prices rent by Cities
+```{r}
+df|>  group_by(city) |>
+  summarise(mean_price=mean(price)) |> arrange(desc(mean_price)) |> 
+  ggplot() +
+  geom_col(aes(x=reorder(city,mean_price),y=mean_price, fill=city))+
+  labs(title = 'Mean of price by cities',
+       x="",
+       y="")  +
+  theme(
+    legend.position = 'none') +coord_flip()
+```
+
+```{r}
+df|>  group_by(city) |>
+  summarise(mean_price=median(price)) |> arrange(desc(mean_price)) |> 
+  ggplot() +
+  geom_col(aes(x=reorder(city,mean_price),y=mean_price, fill=city))+
+  labs(title = 'Median of price by cities',
+       x="",
+       y="")  +
+  theme(
+    legend.position = 'none') + coord_flip()
+```
+
+
+```{r}
+
+# With outlier
+df |> ggplot(aes(city,price)) +
+  geom_boxplot() +
+  labs(x='',y='',title='Variance of price')
+
+# Without Outlier
+df |> ggplot(aes(city,price,fill=city)) +
+  geom_boxplot(outlier.shape = NA) +  scale_y_continuous(limits = quantile(df$price,
+  c(0.1, 0.9))) + theme(legend.position = "none") + labs(x='',y='',title='Variance of price without outliers') + coord_flip()
+
+```
+
+## Which cities have significant differences in prices?
+```{r}
+kruskal.test(price ~ city, df)
+```
+
+At least one group has a median different from the others. The Dunn test allows us to compare the medians between groups and identify where this difference occurs.
+
+```{r}
+dunn_test(price ~ city, data = df, p.adjust.method = "bonferroni")
+```
+
+## Relationship between price and number of bedrooms
+
+```{r}
+df |>
+  group_by (City=city) |> filter(bedrooms==1) |> 
+  summarise(`Median Price` = median(price)) |> arrange(desc(`Median Price`)) |> gt() |>
+  tab_header(
+    title = "Median rental price with 1 Bedroom by City")
+         
+```
+```{r}
+df |>
+  group_by (City=city) |> filter(bedrooms==2) |> 
+  summarise(`Median Price` = median(price)) |> arrange(desc(`Median Price`)) |> gt() |> 
+  tab_header(
+    title = 'Median rental price with 2 Bedrooms by City')
+```
+
+```{r}
+df |>
+  group_by (City=city) |> filter(bedrooms>=3) |> 
+ summarise(`Median Price` = median(price)) |> arrange(desc(`Median Price`)) |> gt() |> 
+  tab_header(
+    title = "Median rental price with 3 or more  Bedrooms by City")
+```
+```{r}
+df |>
+  group_by(bedrooms, city) |>
+  summarise(median_price = median(price)) |>
+  ggplot(aes(x=bedrooms, y=median_price, color=city)) +
+  geom_line(linewidth = 1) +
+  labs(x='Bedrooms',y='Median Price',title='Variance of Median Price for Bedrooms Quantity',color='City')
+
+```
+
+## Relationship between price and number of accomodations
+```{r}
+df |>group_by(city,accommodates) |>
+  summarise(mean_price=mean(price)) |>
+  ggplot(aes(x=accommodates,y=mean_price,color=city)) +
+  geom_line(linewidth = 1) +
+  labs(x='Accomodations',y='Mean Price',title='Variance of Mean Price for Accomodation Quantity',color='City')
+```
+
+# Bangkok Analysis
+
+Bangkok appears to be the city with the most expensive places to rent. Let's explore this further
+```{r}
+bang = df |> filter(city=='Bangkok')
+```
+
+```{r}
+bang |>
+ ggplot(aes(neighbourhood,price,fill=neighbourhood)) +
+  geom_boxplot(outlier.shape = NA) +  scale_y_continuous(limits = quantile(bang$price,
+  c(0.1, 0.9))) +
+  labs(x='',y='',title='Variance of price by Neighbourhood') +
+  coord_flip() +
+  theme(axis.text.y = element_text(size = 6, hjust = 1),
+        legend.position = "none")
+
+```
+
+# There is difference between prince by Neighourhood
+```{r}
+kruskal.test(price ~ neighbourhood, bang)
+```
+
+The Dunn test allows us to compare the medians between groups and identify where this difference occurs.
+
+```{r}
+dunn_test(price ~ neighbourhood, data=bang, p.adjust.method = "bonferroni")
+```
+Few places in Bangkok actually have different rental prices considering the neighborhood
+
+# Paris analysis
+
+Paris has the highest number of places available for hosting, so let's explore more about it.
+
+```{r}
+paris = df |> filter(city=='Paris')
+```
+
+```{r}
+paris |>
+ ggplot(aes(neighbourhood,price,fill=neighbourhood)) +
+  geom_boxplot(outlier.shape = NA) +  scale_y_continuous(limits = quantile(paris$price,
+  c(0.1, 0.9))) + theme(legend.position = "none") + labs(x='',y='',title='Variance of price by Neighbourhood') + coord_flip()
+
+```
+
+# There is difference between price by Neighourhood
+```{r}
+kruskal.test(price ~ neighbourhood, paris)
+```
+
+Again, at least one group has a median different from the others. Let's use the Dunn test again.
+```{r}
+dunn_test(price ~ neighbourhood, data=paris, p.adjust.method = "bonferroni")
+```
+Some places in Paris have price differences, while others do not.
+
+# Conclusion: What are the most expensive and least cities to book an Airbnb.
+
+After my analysis, Bangkok was the city that presented the highest costs for booking an Airbnb, both in terms of the number of bedrooms and accommodations. However, Paris and Rome were the cheapest, using this same criteria. 

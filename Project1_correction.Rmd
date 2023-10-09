@@ -1,0 +1,144 @@
+---
+title: "Project1"
+author: "Frederick Jones"
+date: "2023-09-17"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import libraries
+```{r}
+library(tidyverse)
+library(stringr)
+```
+
+
+## Load the data 
+```{r}
+text_data <- read_lines("https://raw.githubusercontent.com/jewelercart/R/main/tournamentinfo.txt")
+#text_data
+```
+## Preprocessing the data
+### Getting names of all the players
+
+```{r}
+player_names <- character(0)
+total_point <- numeric(0)
+# Define a regular expression pattern to match player names
+pattern <- "^\\s*\\d+\\s+\\|\\s+(.+?)\\s+\\|.*$"
+
+# Iterate through lines in the file
+for (line in text_data) {
+  # Use regular expression to extract player names
+  if (grepl(pattern, line)) {
+    match_data <- str_match(line, pattern)
+    player_name <- match_data[2]
+    player_names <- c(player_names, player_name)
+    point<- str_extract(line, "[[:digit:]]+\\.[[:digit:]]")
+    total_point<- c(total_point, as.numeric(point))
+  }
+  
+}
+
+# Print the extracted player names
+print("Players are : ")
+print(player_names)
+print("Total points are: ")
+print(total_point)
+```
+```{r}
+player_states=character(0)
+## Firs I will select all the rows containg a player's state ON, MI or OH
+states_data <- grep("\\b(ON|MI|OH)\\b", text_data, value = TRUE)
+##Now I can match player's state and add to a variable
+Pre_rating = numeric(0)
+for (line in states_data){
+ st <- str_extract(line,'ON|MI|OH') 
+ player_states <- c(player_states, st)
+ 
+}
+print(player_states)
+```
+
+
+We cann also extract subpart of string without using the loop as follows: 
+
+```{r}
+rating<-str_extract_all(states_data, ".\\: \\s?[[:digit:]]{3,4}")
+rating <- gsub(rating, pattern="R: ", replacement="", fixed = TRUE)
+pre_rating <- as.numeric(rating)
+print(pre_rating)
+```
+```{r}
+text_data2 <- text_data[-c(0:4)]
+#text_data2
+text_data3<- text_data2[sapply(text_data2, nchar)>0]
+#text_data3
+text_data_od <- text_data3[c(seq(1, length(text_data3), 3))]
+text_data_od
+```
+
+# NEW CODE
+```{r}
+
+opponent_player <- str_extract_all(text_data_od, "[[:digit:]]{1,2}")
+opponent_player
+
+opp_numeric = numeric(0)
+for (line in opponent_player){
+ players<- line[4: length(line)]
+ opp_numeric <- c(opp_numeric, list((players)))
+ 
+}
+
+print(head(opp_numeric))
+
+max_length <- max(sapply(opp_numeric, length))
+
+vec_to_list= function(vec) {
+  c(vec, rep("0", max_length - length(vec)))
+}
+
+# Fill the vectors with zeros to make them of equal length
+padded_vectors <- lapply(opp_numeric,vec_to_list) 
+
+padded_vectors
+
+df <- as.data.frame(do.call(rbind, padded_vectors))
+
+# Convert character columns to numeric, replacing non-numeric values with NA
+df <- data.frame(sapply(df, function(x) as.numeric(as.character(x))))
+
+# Replace NA with 0
+df[is.na(df)] <- 0
+
+# Print the resulting data frame
+
+df
+```
+```{r}
+opponent_avg_rating<-list()
+for (i in 1:nrow(df)){
+  opponent_avg_rating[i]<- round(mean(as.numeric(unlist(df[i,]))), 2)
+}
+opponent_avg_rating<- unlist(opponent_avg_rating)
+opponent_avg_rating
+
+```
+
+```{r}
+df<- cbind.data.frame(player_names, player_states, total_point, pre_rating, opponent_avg_rating)
+colnames(df)<- c("Player's name", "Player's state", "Total number of points", "Player's Pre-Rating", "Opponent's Average Pre-Rating")
+df
+```
+
+```{r}
+write.csv(df, "chess_rating.csv")
+```
+
